@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>销售数据一键诊断 | 隐私优先</title>
+  <style>
+    :root {
+      --primary: #0f766e;
+      --primary-hover: #0d9488;
+      --bg: #f0fdfa;
+      --card: #fff;
+      --text: #134e4a;
+      --muted: #5b7c7a;
+      --border: #ccfbf1;
+      --danger: #dc2626;
+      --success: #059669;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+    header { text-align: center; margin-bottom: 28px; }
+    header h1 { font-size: 1.7rem; font-weight: 700; }
+    header .sub { color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
+    header .hint { color: var(--muted); font-size: 0.82rem; margin-top: 6px; }
+    .badge {
+      display: inline-block; background: #ccfbf1; color: var(--primary);
+      font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; font-weight: 600; margin-left: 6px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .dropzone {
+      border: 2px dashed #99f6e4; border-radius: 10px; padding: 40px 16px;
+      text-align: center; cursor: pointer; background: #f0fdfa; transition: .2s;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--primary); background: #ccfbf1; }
+    .dropzone .icon { font-size: 2.2rem; margin-bottom: 8px; }
+    .dropzone p { color: var(--muted); font-size: 0.9rem; }
+    .dropzone strong { color: var(--primary); }
+    input[type=file] { display: none; }
+    .file-list { margin-top: 12px; }
+    .file-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; background: #f0fdfa; border-radius: 8px; font-size: 0.875rem; margin-bottom: 6px;
+    }
+    .file-item .remove { color: var(--danger); cursor: pointer; font-size: 0.8rem; }
+    .btn {
+      display: block; width: 100%; padding: 14px; margin-top: 14px;
+      background: var(--primary); color: #fff; border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:disabled { background: #99a; cursor: not-allowed; }
+    .features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    @media (max-width: 520px) { .features { grid-template-columns: 1fr; } }
+    .feat { background: #f0fdfa; border-radius: 8px; padding: 12px; font-size: 0.85rem; }
+    .feat strong { display: block; margin-bottom: 4px; }
+    .privacy {
+      background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px;
+      padding: 14px; font-size: 0.85rem; color: #065f46;
+    }
+    .privacy a { color: var(--primary); }
+    .status { margin-top: 12px; padding: 10px; border-radius: 8px; font-size: 0.9rem; display: none; }
+    .status.loading { display: block; background: #ecfeff; color: #0e7490; }
+    .status.error { display: block; background: #fef2f2; color: var(--danger); }
+    .status.success { display: block; background: #ecfdf5; color: var(--success); }
+    footer { text-align: center; margin-top: 32px; color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>销售数据一键诊断 <span class="badge">隐私优先</span></h1>
+      <p class="sub">上传 Excel / CSV，自动出经营诊断报告（汇总、排行、异常、建议）</p>
+      <p class="hint">建议包含：日期、金额、商品、渠道、地区、客户等列；列名支持中英文</p>
+    </header>
+
+    <div class="card">
+      <div class="dropzone" id="dropzone">
+        <div class="icon">📊</div>
+        <p><strong>点击选择</strong> 或拖拽文件到此处</p>
+        <p style="margin-top:8px;font-size:0.8rem;">Excel / CSV · 单文件 ≤ {{ max_size_mb }}MB · 一次 {{ max_files }} 个</p>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+      </div>
+      <div class="file-list" id="fileList"></div>
+      <button class="btn" id="submitBtn" disabled>开始诊断并下载报告</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:1rem;margin-bottom:10px;">报告里有什么</h3>
+      <div class="features">
+        <div class="feat"><strong>经营总览</strong>销售额、笔数、客单价、日均、日期范围</div>
+        <div class="feat"><strong>日销售趋势</strong>按日汇总 + 环比（有日期时）</div>
+        <div class="feat"><strong>商品排行</strong>销售额 Top + 占比 + 累计占比（帕累托）</div>
+        <div class="feat"><strong>渠道 / 地区</strong>自动汇总占比</div>
+        <div class="feat"><strong>客户集中度</strong>Top5 / Top10 客户占比</div>
+        <div class="feat"><strong>异常 + 建议</strong>大额、负金额、环比大跌 + 规则建议</div>
+      </div>
+    </div>
+
+    <div class="privacy">
+      <strong>隐私承诺</strong><br>
+      文件仅临时处理，完成后立即删除，不落库、不训练、不分享。
+      结果仅供参考，重要决策请人工复核。
+      <a href="/privacy">完整说明 →</a>
+    </div>
+
+    <footer>Sales Diagnosis v1.0 · 可私有部署</footer>
+  </div>
+
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusEl = document.getElementById('status');
+    let selected = [];
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) { selected = [e.dataTransfer.files[0]]; render(); }
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) { selected = [fileInput.files[0]]; render(); }
+    });
+
+    function render() {
+      fileList.innerHTML = '';
+      selected.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML = `<span>${f.name} (${(f.size/1024).toFixed(1)} KB)</span>
+          <span class="remove" data-i="${i}">移除</span>`;
+        fileList.appendChild(div);
+      });
+      fileList.querySelectorAll('.remove').forEach(el => {
+        el.onclick = () => { selected = []; render(); };
+      });
+      submitBtn.disabled = selected.length === 0;
+    }
+
+    submitBtn.addEventListener('click', async () => {
+      if (!selected.length) return;
+      submitBtn.disabled = true;
+      statusEl.className = 'status loading';
+      statusEl.textContent = '正在诊断，请稍候…';
+
+      const form = new FormData();
+      form.append('files', selected[0]);
+
+      try {
+        const res = await fetch('/api/process', { method: 'POST', body: form });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `失败 (${res.status})`);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '销售诊断报告.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+        statusEl.className = 'status success';
+        statusEl.textContent = '诊断完成，报告已开始下载。';
+        selected = [];
+        render();
+      } catch (e) {
+        statusEl.className = 'status error';
+        statusEl.textContent = e.message || '处理失败';
+      } finally {
+        submitBtn.disabled = selected.length === 0;
+      }
+    });
+  </script>
+</body>
+</html>
